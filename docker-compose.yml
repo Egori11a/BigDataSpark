@@ -19,9 +19,9 @@ services:
     image: clickhouse/clickhouse-server:latest
     container_name: my-clickhouse
     ports:
-      - "8123:8123"  # HTTP interface
-      - "9000:9000"  # Native protocol
-      - "9009:9009"  # Interserver communication
+      - "8123:8123"
+      - "9000:9000"
+      - "9009:9009"
     volumes:
       - clickhouse_data:/var/lib/clickhouse
       - clickhouse_log:/var/log/clickhouse-server
@@ -30,6 +30,17 @@ services:
       CLICKHOUSE_USER: myuser
       CLICKHOUSE_PASSWORD: mysecretpassword
       CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT: "1"
+    networks:
+      - etl-network
+
+  cassandra:
+    image: cassandra:latest
+    container_name: my-cassandra
+    ports:
+      - "9042:9042"
+    environment:
+      - CASSANDRA_CLUSTER_NAME=TestCluster
+      - CASSANDRA_START_RPC=true
     networks:
       - etl-network
 
@@ -42,22 +53,19 @@ services:
     volumes:
       - ./notebooks:/home/jovyan/work
       - ./data:/home/jovyan/data
-      - postgresql-jar:/usr/local/spark/jars
-      - clickhouse-jdbc-jar:/usr/local/spark/jars/clickhouse-jdbc.jar
     depends_on:
       - postgres
       - clickhouse
+      - cassandra
     environment:
-      - SPARK_SUBMIT_OPTIONS=--jars /usr/local/spark/jars/postgresql-42.7.5.jar,/usr/local/spark/jars/clickhouse-jdbc.jar
+      - PYSPARK_SUBMIT_ARGS=--packages com.datastax.spark:spark-cassandra-connector_2.12:3.2.0,org.postgresql:postgresql:42.7.5 pyspark-shell
     networks:
       - etl-network
 
 volumes:
   postgres_data:
-  postgresql-jar:
   clickhouse_data:
   clickhouse_log:
-  clickhouse-jdbc-jar:
 
 networks:
   etl-network:
