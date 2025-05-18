@@ -1,0 +1,64 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:latest
+    container_name: my-postgres
+    environment:
+      POSTGRES_PASSWORD: mysecretpassword
+      POSTGRES_USER: myuser
+      POSTGRES_DB: mydatabase
+    ports:
+      - "65432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - etl-network
+
+  clickhouse:
+    image: clickhouse/clickhouse-server:latest
+    container_name: my-clickhouse
+    ports:
+      - "8123:8123"  # HTTP interface
+      - "9000:9000"  # Native protocol
+      - "9009:9009"  # Interserver communication
+    volumes:
+      - clickhouse_data:/var/lib/clickhouse
+      - clickhouse_log:/var/log/clickhouse-server
+    environment:
+      CLICKHOUSE_DB: mydatabase
+      CLICKHOUSE_USER: myuser
+      CLICKHOUSE_PASSWORD: mysecretpassword
+      CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT: "1"
+    networks:
+      - etl-network
+
+  spark-jupyter:
+    image: jupyter/pyspark-notebook
+    container_name: spark-jupyter
+    ports:
+      - "9441:4040"
+      - "9889:8888"
+    volumes:
+      - ./notebooks:/home/jovyan/work
+      - ./data:/home/jovyan/data
+      - postgresql-jar:/usr/local/spark/jars
+      - clickhouse-jdbc-jar:/usr/local/spark/jars/clickhouse-jdbc.jar
+    depends_on:
+      - postgres
+      - clickhouse
+    environment:
+      - SPARK_SUBMIT_OPTIONS=--jars /usr/local/spark/jars/postgresql-42.7.5.jar,/usr/local/spark/jars/clickhouse-jdbc.jar
+    networks:
+      - etl-network
+
+volumes:
+  postgres_data:
+  postgresql-jar:
+  clickhouse_data:
+  clickhouse_log:
+  clickhouse-jdbc-jar:
+
+networks:
+  etl-network:
+    driver: bridge
